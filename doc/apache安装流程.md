@@ -19,16 +19,17 @@ getconf LONG_BIT
 httpd-2.4.39  
 apr-1.5.2  
 apr-util-1.6.0  
-pcre-8.38
-mod_wl_24.so
+pcre-8.38  
+mod_wl_24.so  
+openssl-1.1.0c
 
 ### 用户和目录规划
 
-权限分离 中间件全部使用wlsoper安装 775权限
+权限分离 中间件全部使用wlsoper安装 775权限  
 Apache用户属于wlsoper用户组, 对相应目录有读写权限即可
 
-Apache安装目录: /tpsys/apache
-介质存放目录: /tpsys/install
+Apache安装目录: /tpsys/apache  
+介质存放目录: /tpsys/install  
 /tmp下如果有/tmp/_wl_proxy, 需要确保apache对该目录有读写权限
 
 ```shell
@@ -77,14 +78,30 @@ cd apr-util
 ./configure --prefix=/tpsys/apache/httpd/apr-util --with-apr=/tpsys/apache/httpd/apr --with-expat=builtin
 make
 make install
+
+# 检查OpenSSL版本,如果版本比较低(低于1.1.0)就升级版本,否则编译httpd时加上--enable-ssl会报错
+openssl version
+cd /tpsys/install
+tar -zxvf openssl-1.1.0c.tar.gz
+cd openssl-1.1.0c
+./config --prefix=/usr/local/openssl
+make
+make install
+mv /usr/bin/openssl /usr/bin/openssl.bak
+ln -sf /usr/lcoal/openssl/bin/openssl /usr/bin/openssl
+cp /etc/ld.so.conf /etc/ld.so.conf.bak
+echo "/usr/local/openssl/lib" >> /etc/ld.so.conf
+ldconfig -v
 ```
 
 若出现问题,使用`make clean`清楚编译缓存,重新编译即可,若报builtin相关错误,可以不带builtin参数
 
 ```shell
 cd /tpsys/install/httpd-2.4.39
-./configure --prefix=/tpsys/apache/httpd --enable-so --enable-mods-shared=all --with-apr=/tpsys/apache/httpd/apr
+./configure --prefix=/tpsys/apache/httpd --enable-so --enable-ssl --enable-proxy
+--enable-proxy-http --enable-mods-shared=all --with-apr=/tpsys/apache/httpd/apr
 --with-apr-util=/tpsys/apache/httpd/apr-util --with-pcre=/tpsys/apache/httpd/pcre
+--with-ssl=/usr/local/openssl
 make
 make install
 ```
@@ -112,6 +129,25 @@ vi /etc/rc.local
 su - apache -c "/tpsys/apache/httpd/bin/httpd -k start"
 ```
 
+### 设置apache用户权限
+
+```shell
+visudo
+Cmnd_Alias APACHE=/bin/kill,/bin/netstat,/tpsys/apache/httpd/bin/*,/tpsys/applications/apache/script/*sh
+```
+
+### 配置脚本
+
+```shell
+cd /tpsys/application/apache/script
+vi start.sh
+sudo -u wlsoper /tpsys/apache/httpd/bin/httpd -k start
+vi stop.sh
+sudo -u wlsoper /tpsys/apache/httpd/bin/httpd -k stop
+vi restart.sh
+sudo -u wlsoper /tpsys/apache/httpd/bin/httpd -k restart
+```
+
 ### 端口
 
 ```shell
@@ -128,6 +164,7 @@ mod_proxy_connect.so
 mod_proxy_ftp.so
 mod_proxy_http.so
 mod_proxy.so
+mod_rewrite.so
 
 # 反向代理配置,在httpd.conf文件添加
 # 访问 http://IP:8080/life 时,反向代理到 http://10.1.1.1:7001/life
@@ -170,13 +207,6 @@ ServerName IP
 ```
 
 ### SSL证书配置
-
-#### 配置前检查OpenSSL版本,如果版本比较低就升级版本
-
-```shell
-rpm -qa | grep openssl
-# 若需要SSL的话,在编译时加入 --enable-ssl 即可
-```
 
 #### 启用SSL
 
@@ -224,3 +254,17 @@ ServerSignature Off
 # 隐藏版本信息
 ServerTokens Prod
 ```
+
+## 问题总结
+
+1. apr-util编译报错
+
+    要把apr放在apr-util之前编译
+
+2. 加载weblogic模块后,语法测试错误
+
+    模块版本错误,不能使用低于mod_wl_24.so的模块
+
+3. 代理配置成功后,无法访问资源
+
+    查看文根是否正确,能否在配置的路径下找到相关资源
