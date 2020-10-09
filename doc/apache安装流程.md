@@ -276,3 +276,14 @@ ServerTokens Prod
     autoreconf -f -i
     # 然后再依次执行./configure, make, make install
     ```
+
+5. 编译pcre时报错`rm: cannot remove 'libtoolT': No such file or directory`
+
+    ```shell
+    vi configure
+    Change the line
+    $RM "$cfgfile"
+    to
+    $RM -f "$cfgfile"
+    This will resolve the error
+    ```
