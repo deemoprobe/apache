@@ -268,3 +268,11 @@ ServerTokens Prod
 3. 代理配置成功后,无法访问资源
 
     查看文根是否正确,能否在配置的路径下找到相关资源
+
+4. 编译时出错`aclocal-1.15' is missing on your system`
+
+    ```shell
+    #进入configure所在目录,执行下面自动编译修复语句
+    autoreconf -f -i
+    # 然后再依次执行./configure, make, make install
+    ```
