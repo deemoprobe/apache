@@ -1,8 +1,8 @@
-# Apache2.4 安装流程
+# 1. Apache2.4 安装流程
 
-## 安装前准备工作
+## 1.1. 安装前准备工作
 
-### 检查磁盘空间和环境
+### 1.1.1. 检查磁盘空间和环境
 
 ```shell
 # 查看安装位置是否有足够的空间
@@ -14,7 +14,7 @@ lsb_release -a
 getconf LONG_BIT
 ```
 
-### 准备安装介质
+### 1.1.2. 准备安装介质
 
 httpd-2.4.39  
 apr-1.5.2  
@@ -23,29 +23,28 @@ pcre-8.38
 mod_wl_24.so  
 openssl-1.1.0c
 
-### 用户和目录规划
+### 1.1.3. 用户和目录规划
 
-权限分离 中间件全部使用wlsoper安装 775权限  
-Apache用户属于wlsoper用户组, 对相应目录有读写权限即可
+权限分离 中间件全部使用admin安装 775权限  
+Apache用户属于admin用户组, 对相应目录有读写权限即可
 
-Apache安装目录: /tpsys/apache  
-介质存放目录: /tpsys/install  
-/tmp下如果有/tmp/_wl_proxy, 需要确保apache对该目录有读写权限
+Apache安装目录: /app/apache  
+介质存放目录: /app/install  
 
 ```shell
-groupadd -g 500 wlsoper
-useradd -u 500 -g wlsoper -G wheel -d /home/wlsoper wlsoper
-useradd -u 8080 -g wlsoper -d /home/apache apache
-echo "wlsoper_passwd" | passwd --stdin wlsoper
+groupadd -g 500 admin
+useradd -u 500 -g admin -G wheel -d /home/admin admin
+useradd -u 8080 -g admin -d /home/apache apache
+echo "admin_passwd" | passwd --stdin admin
 echo "apache_passwd" | passwd --stdin apache
 ```
 
-## 安装Apache2.4
+## 1.2. 安装Apache2.4
 
-### 解压所有介质包
+### 1.2.1. 解压所有介质包
 
 ```shell
-cd /tpsys/install
+cd /app/install
 
 tar -zxvf httpd-2.4.39.tar.gz  
 tar -zxvf apr-1.5.2.tar.gz  
@@ -56,32 +55,32 @@ mv apr-1.5.2 apr
 mv apr-util-1.6.0 apr-util  
 mv pcre-8.38 pcre
 
-cp -r apr apr-util pcre /tpsys/install/httpd-2.4.39/srclib/
+cp -r apr apr-util pcre /app/install/httpd-2.4.39/srclib/
 ```
 
-### 编译
+### 1.2.2. 编译
 
 ```shell
-cd /tpsys/install/httpd-2.4.39/srclib/
+cd /app/install/httpd-2.4.39/srclib/
 # 编译pcre
 cd pcre
-./configure --prefix=/tpsys/apache/httpd/pcre
+./configure --prefix=/app/apache/httpd/pcre
 make
 make install
 # 编译apr
 cd apr
-./configure --prefix=/tpsys/apache/httpd/apr
+./configure --prefix=/app/apache/httpd/apr
 make
 make install
 # 编译apr-util
 cd apr-util
-./configure --prefix=/tpsys/apache/httpd/apr-util --with-apr=/tpsys/apache/httpd/apr --with-expat=builtin
+./configure --prefix=/app/apache/httpd/apr-util --with-apr=/app/apache/httpd/apr --with-expat=builtin
 make
 make install
 
 # 检查OpenSSL版本,如果版本比较低(低于1.1.0)就升级版本,否则编译httpd时加上--enable-ssl会报错
 openssl version
-cd /tpsys/install
+cd /app/install
 tar -zxvf openssl-1.1.0c.tar.gz
 cd openssl-1.1.0c
 ./config --prefix=/usr/local/openssl
@@ -97,19 +96,19 @@ ldconfig -v
 若出现问题,使用`make clean`清楚编译缓存,重新编译即可,若报builtin相关错误,可以不带builtin参数
 
 ```shell
-cd /tpsys/install/httpd-2.4.39
-./configure --prefix=/tpsys/apache/httpd --enable-so --enable-ssl --enable-proxy
---enable-proxy-http --enable-mods-shared=all --with-apr=/tpsys/apache/httpd/apr
---with-apr-util=/tpsys/apache/httpd/apr-util --with-pcre=/tpsys/apache/httpd/pcre
+cd /app/install/httpd-2.4.39
+./configure --prefix=/app/apache/httpd --enable-so --enable-ssl --enable-proxy
+--enable-proxy-http --enable-mods-shared=all --with-apr=/app/apache/httpd/apr
+--with-apr-util=/app/apache/httpd/apr-util --with-pcre=/app/apache/httpd/pcre
 --with-ssl=/usr/local/openssl
 make
 make install
 ```
 
-## 启停
+## 1.3. 启停
 
 ```shell
-cd /tpsys/apache/httpd/bin/
+cd /app/apache/httpd/bin/
 # 启动
 ./apachectl -k start
 # 停止
@@ -118,45 +117,45 @@ cd /tpsys/apache/httpd/bin/
 ./apachectl -k restart
 ```
 
-## 优化配置
+## 1.4. 优化配置
 
 修改的相关文件及时备份
 
-### 自启动
+### 1.4.1. 自启动
 
 ```shell
 vi /etc/rc.local
-su - apache -c "/tpsys/apache/httpd/bin/httpd -k start"
+su - apache -c "/app/apache/httpd/bin/httpd -k start"
 ```
 
-### 设置apache用户权限
+### 1.4.2. 设置apache用户权限
 
 ```shell
 visudo
-Cmnd_Alias APACHE=/bin/kill,/bin/netstat,/tpsys/apache/httpd/bin/*,/tpsys/applications/apache/script/*sh
+Cmnd_Alias APACHE=/bin/kill,/bin/netstat,/app/apache/httpd/bin/*,/app/applications/apache/script/*sh
 ```
 
-### 配置脚本
+### 1.4.3. 配置脚本
 
 ```shell
-cd /tpsys/application/apache/script
+cd /app/application/apache/script
 vi start.sh
-sudo -u wlsoper /tpsys/apache/httpd/bin/httpd -k start
+sudo -u admin /app/apache/httpd/bin/httpd -k start
 vi stop.sh
-sudo -u wlsoper /tpsys/apache/httpd/bin/httpd -k stop
+sudo -u admin /app/apache/httpd/bin/httpd -k stop
 vi restart.sh
-sudo -u wlsoper /tpsys/apache/httpd/bin/httpd -k restart
+sudo -u admin /app/apache/httpd/bin/httpd -k restart
 ```
 
-### 端口
+### 1.4.4. 端口
 
 ```shell
 Listen 8080
 ```
 
-### 代理
+### 1.4.5. 代理
 
-#### 反向代理
+#### 1.4.5.1. 反向代理
 
 ```shell
 # 反向代理需要开启以下模块,在httpd.conf文件中解除相关配置
@@ -183,15 +182,15 @@ mod_rewrite.so
 </VirtualHost
 ```
 
-#### weblogic代理
+#### 1.4.5.2. weblogic代理
 
-将weblogic模块mod_wl_24.so上传到/tpsys/apache/httpd/modules/ 并赋权775
+将weblogic模块mod_wl_24.so上传到/app/apache/httpd/modules/ 并赋权775
 
 ```shell
 # weblogic代理配置,在httpd.conf文件添加
-DocumentRoot "/tpsys/servers/applications/html_tp"
+DocumentRoot "/app/servers/applications/html_tp"
 # 需要转发的文根
-<Directory "/tpsys/servers/applications/html_tp">
+<Directory "/app/servers/applications/html_tp">
 # 本机IP
 ServerName IP
 <IfModule mod_weblogic.c>
@@ -206,9 +205,9 @@ ServerName IP
 </IfModule>
 ```
 
-### SSL证书配置
+### 1.4.6. SSL证书配置
 
-#### 启用SSL
+#### 1.4.6.1. 启用SSL
 
 ```shell
 # 配置文件中取消下面两行注释
@@ -216,15 +215,15 @@ LoadModule ssl_module modules/mod_ssl.so
 Include conf/extra/httpd-ssl.conf
 ```
 
-#### 证书配置
+#### 1.4.6.2. 证书配置
 
 暂未更新
 
-## 安全加固
+## 1.5. 安全加固
 
 在httpd.conf中修改或新增相关配置
 
-### 修改项
+### 1.5.1. 修改项
 
 ```shell
 # 修改目录遍历漏洞
@@ -233,7 +232,7 @@ Options Indexes FollowSymLinks --> Options FollowSymLinks
 LoadModule headers_module module/mod_headers.so
 ```
 
-### 新增项
+### 1.5.2. 新增项
 
 ```shell
 # 只允许GET和POST方法（实际上是禁用了PUT和DELETE等高危方法）
@@ -255,7 +254,7 @@ ServerSignature Off
 ServerTokens Prod
 ```
 
-## 问题总结
+## 1.6. 问题总结
 
 1. apr-util编译报错
 
